@@ -65,7 +65,9 @@ function drawPad() {
 
 const toUnits = (e) => [(e.offsetX / pad.clientWidth) * PAD.w, (e.offsetY / pad.clientHeight) * PAD.h + PAD.top];
 pad.onpointerdown = (e) => {
-  if (!standalone && !location.search.includes('dev')) return;
+  const dev = location.search.includes('dev');
+  if (!standalone && !dev) return;
+  if (e.pointerType !== 'pen' && !dev) return; // Apple Pencil only: palm and finger touches are ignored
   pad.setPointerCapture(e.pointerId);
   current = [toUnits(e)]; strokes.push(current); drawPad();
 };

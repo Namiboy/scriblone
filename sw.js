@@ -1,6 +1,6 @@
 // Offline cache: all app files are stored on install; every request is answered from the cache at once
 // and refreshed from the network in the background, so an update shows up on the next start.
-const CACHE = 'scriblone-v1';
+const CACHE = 'scriblone-v2';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'src/app.js', 'src/goodnotes.js', 'src/layout.js',
   'src/lz4.js', 'src/pb.js', 'src/tpl.js', 'vendor/fflate.mjs', 'template/notebook.goodnotes'];
 
