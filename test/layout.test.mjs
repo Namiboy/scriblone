@@ -37,7 +37,7 @@ test('jitter stays in bounds and no character repeats a (variant, scale, dx, dy)
   const seen = new Map();
   for (const p of r.placements) {
     assert.ok(Math.abs(p.scale - 1) <= JITTER.size + 1e-9);
-    assert.ok(Math.abs(p.dy) <= JITTER.base * U + 1e-9);
+    assert.ok(p.dy >= -JITTER.up * U - 1e-9 && p.dy <= JITTER.down * U + 1e-9, `dy ${p.dy}`);
     assert.ok(Math.abs(p.dx) <= GAP * JITTER.gap * U + 1e-9);
     const k = `${p.variant}|${p.scale}|${p.dx}|${p.dy}`, s = seen.get(p.ch) ?? new Set();
     assert.ok(!s.has(k), `repeat for ${p.ch}`);
