@@ -68,6 +68,21 @@ test('a word longer than a line is broken inside the margins', () => {
   assert.ok(new Set(r.pages[0].map((s) => Math.round(s[0][1]))).size >= 2, 'spans several lines');
 });
 
+test('doubled letters never repeat a variant; line starts vary within the indent jitter', () => {
+  const r = layout('aaaa aa', glyphs, { rng: () => 0 }); // rng 0 alone would always pick variant 0
+  const v = r.placements.map((p) => p.variant);
+  for (let i = 1; i < 4; i++) assert.notEqual(v[i], v[i - 1]);
+  const starts = layout(text(300), glyphs).pages[0].reduce((m, s) => {
+    const y = Math.round(s[0][1] / U), x = Math.min(...s.map((p) => p[0]));
+    m.set(y, Math.min(m.get(y) ?? Infinity, x));
+    return m;
+  }, new Map());
+  const xs = [...starts.values()];
+  assert.ok(Math.max(...xs) - Math.min(...xs) > 1, 'line starts differ');
+  const left = PAGE.margin.left + 16;
+  for (const x of xs) assert.ok(Math.abs(x - left) <= JITTER.indent * U + 0.3 * U, `start ${x}`);
+});
+
 test('normalizeText maps iPad smart punctuation to the set-up characters', async () => {
   const { normalizeText } = await import('../src/layout.js');
   assert.equal(normalizeText('„Hallo“ – geht’s… ‚ja‘'), '"Hallo" - geht\'s... \'ja\'');
