@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<title>scriblone</title>
+<style>
+  :root { --fg: #111; --bg: #fff; --muted: #666; --line: #ccc; --btn: #f2f2f2; --accent: #2563eb; }
+  * { box-sizing: border-box; }
+  body { font: 17px -apple-system, system-ui, sans-serif; margin: 0 auto; max-width: 52rem; padding: 12px 16px 40px; background: var(--bg); color: var(--fg); -webkit-user-select: none; user-select: none; }
+  nav { display: flex; gap: 8px; margin-bottom: 12px; }
+  nav button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button, .btn { padding: .7rem 1rem; font-size: 1rem; border-radius: .6rem; border: 1px solid #999; background: var(--btn); color: var(--fg); text-decoration: none; display: inline-block; }
+  button:disabled { opacity: .4; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  .warn { background: #fff3cd; padding: .7rem; border-radius: .5rem; }
+  #pad { width: 100%; max-width: 600px; aspect-ratio: 5 / 4; border: 1px solid var(--line); border-radius: .5rem; touch-action: none; display: block; background: #fff; }
+  #target { font-size: 2.4rem; font-weight: 600; min-width: 2ch; }
+  textarea { width: 100%; min-height: 12rem; font: inherit; padding: .6rem; border-radius: .5rem; border: 1px solid var(--line); -webkit-user-select: text; user-select: text; }
+  #preview { width: 100%; max-width: 420px; border: 1px solid var(--line); background: #fff; display: block; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<nav>
+  <button id="tabWrite" class="on">Text</button>
+  <button id="tabSetup">Schrift einrichten</button>
+</nav>
+
+<section id="write">
+  <textarea id="text" placeholder="Text hier eintippen …"></textarea>
+  <div class="row">
+    <button id="make">1. Erzeugen</button>
+    <button id="share" disabled>2. Teilen</button>
+    <a id="download" class="btn" hidden>Herunterladen</a>
+  </div>
+  <p id="info" class="muted"></p>
+  <canvas id="preview" hidden></canvas>
+</section>
+
+<section id="setup" hidden>
+  <p id="pwaWarn" class="warn" hidden>Du bist im Safari-Tab. Richte die Schrift bitte in der App vom Home-Bildschirm ein – Safari-Tab und App haben getrennte Speicher.</p>
+  <div class="row">
+    <span id="target"></span>
+    <span id="which" class="muted"></span>
+    <select id="jump"></select>
+    <span id="count" class="muted"></span>
+  </div>
+  <canvas id="pad"></canvas>
+  <div class="row">
+    <button id="prev">← Zurück</button>
+    <button id="clear">Löschen</button>
+    <button id="next">Speichern & weiter →</button>
+  </div>
+  <p class="muted">Schreib das Zeichen zwischen die Hilfslinien: Grundlinie = dicke Linie, Kleinbuchstaben bis zur gestrichelten Linie, Großbuchstaben bis zur oberen Linie.</p>
+  <div class="row">
+    <a id="backup" class="btn">Backup speichern (JSON)</a>
+    <label class="btn">Backup laden <input id="restore" type="file" accept="application/json,.json" hidden></label>
+  </div>
+</section>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

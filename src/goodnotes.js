@@ -122,7 +122,7 @@ export function cloneEvents(events, allEvents, fromEntity, toEntity, counterAfte
   let c = counterAfter;
   return events.map((e) => {
     const s = latin1(e.raw).split(fromEntity).join(toEntity)
-      .replace(UUID_RE, (u) => (u === toEntity || entities.has(u) ? u : randomUuid()));
+      .replace(UUID_RE, (u, i, all) => (u === toEntity || entities.has(u) || all[i - 1] === ':' ? u : randomUuid()));
     const f = parse(fromLatin1(s));
     const p = parse(f[1].value).map((x) => (x.wire === 0 && isCounter(x.value) ? field(x.no, ++c) : x));
     return serialize([f[0], field(f[1].no, serialize(p))]);
@@ -135,3 +135,49 @@ const isCounter = (v) => typeof v === 'bigint' && v > 1_700_000_000_000n && v < 
 export const maxCounter = (events) => events
   .flatMap((e) => parse(parse(e.raw)[1].value))
   .reduce((m, x) => (x.wire === 0 && isCounter(x.value) && x.value > m ? x.value : m), 0n);
+
+/** Notes UUID of a page: last hex digit + 1. */
+export const notesIdOf = (page) => page.slice(0, 35) + (parseInt(page.at(-1), 16) + 1).toString(16).toUpperCase();
+
+/** Build a notebook with one page per entry of `pages` (each a list of tpl strokes) from a template
+ *  whose LAST page has a notes file with ≥1 stroke (record prototype) and the full notes event set
+ *  (104, 102, 105, 104). Template pages are dropped; each new page clones the last page's events. */
+export function buildNotebook(template, pages) {
+  const f = renewIds(template);
+  const events = readEvents(f['index.events.pb']);
+  const pageEvs = events.filter((e) => e.ev === 54);
+  const srcPage = pageEvs.at(-1), srcNotes = notesIdOf(srcPage.entity);
+  const oldIds = new Set(pageEvs.flatMap((e) => [e.entity, notesIdOf(e.entity)]));
+  const notesEvs = events.filter((e) => e.entity === srcNotes);
+  const current = events.find((e) => e.ev === 10);
+  const { proto } = readNotes(f['notes/' + srcNotes]);
+  const sortKey = td.decode(fieldOf(parse(fieldOf(parse(fieldOf(parse(srcPage.raw), 54).value), 4).value), 1).value);
+
+  const out = events.filter((e) => !oldIds.has(e.entity) && e.ev !== 10).map((e) => e.raw);
+  const notesFiles = {};
+  let c = maxCounter(events), first;
+  const add = (raws) => { out.push(...raws); c = maxCounter(raws.map((raw) => ({ raw }))); };
+  pages.forEach((strokes, i) => {
+    const page = randomUuid().slice(0, 35) + 'A', notes = notesIdOf(page);
+    first ??= page;
+    // shortcut: keys are 'M' + 4 base-36 digits (same length as the template key), max 1.6M pages
+    const key = 'M' + i.toString(36).padStart(sortKey.length - 1, '0');
+    const pageEv = { ...srcPage, raw: fromLatin1(latin1(srcPage.raw).split(sortKey).join(key)) };
+    add(cloneEvents([pageEv], events, srcPage.entity, page, c));
+    add(cloneEvents(notesEvs, events, srcNotes, notes, c));
+    notesFiles['notes/' + notes] = writeNotes(proto, strokes);
+  });
+  const shown = pageEvs.find((p) => latin1(current.raw).includes(p.entity)).entity;
+  add(cloneEvents([current], events, shown, first, c));
+
+  const files = {};
+  for (const [n, d] of Object.entries(f)) {
+    if (n.startsWith('notes/') || (n.startsWith('search/') && oldIds.has(n.slice(7)))) continue;
+    files[n] = d;
+  }
+  Object.assign(files, notesFiles);
+  files['index.events.pb'] = serializeDelimited(out);
+  files['index.notes.pb'] = serializeDelimited(Object.keys(notesFiles).map((n) => serialize([field(1, n.slice(6)), field(2, n)])));
+  files['index.search.pb'] = serializeDelimited(parseDelimited(f['index.search.pb']).filter((m) => !oldIds.has(td.decode(parse(m)[0].value))));
+  return files;
+}

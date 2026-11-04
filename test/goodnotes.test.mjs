@@ -70,3 +70,19 @@ test('cloneEvents: entity swapped, counters after max, non-entity UUIDs renewed'
     assert.ok(g.maxCounter([c]) > max);
   }
 });
+
+test('buildNotebook: one page + notes file per entry, sorted keys, current page = first, no template pages left', () => {
+  const t = g.readZip(readFileSync(root + 'template/notebook.goodnotes'));
+  const s = g.strokeFromPoints([[100, 200], [300, 250]], 4.5);
+  const nb = g.buildNotebook(t, [[s], [s, s], []]);
+  const ev = g.readEvents(nb['index.events.pb']);
+  const pages = ev.filter((e) => e.ev === 54).map((e) => e.entity);
+  assert.equal(pages.length, 3);
+  const keys = ev.filter((e) => e.ev === 54).map((e) => Buffer.from(e.raw).toString('latin1').match(/M[0-9a-z]{4}/)[0]);
+  assert.deepEqual([...keys].sort(), keys);
+  assert.deepEqual(pages.map((p) => g.readNotes(nb['notes/' + g.notesIdOf(p)]).strokes.length), [1, 2, 0]);
+  assert.equal(parseDelimited(nb['index.notes.pb']).length, 3);
+  assert.ok(Buffer.from(ev.find((e) => e.ev === 10).raw).toString('latin1').includes(pages[0]));
+  const old = g.readEvents(t['index.events.pb']).filter((e) => e.ev === 54).map((e) => e.entity.slice(0, 30));
+  assert.ok(!old.some((o) => Buffer.from(nb['index.events.pb']).toString('latin1').includes(o)));
+});

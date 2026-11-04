@@ -2,7 +2,7 @@
 samples/
 out/
 *.goodnotes
-!docs/spike-C.goodnotes
+!template/notebook.goodnotes
 !template/template.goodnotes
 .omc/
 .claude/
