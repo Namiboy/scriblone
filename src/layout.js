@@ -56,3 +56,7 @@ export function layout(text, glyphs, { rng = Math.random, page = PAGE } = {}) {
   while (pages.length > 1 && !pages.at(-1).length) pages.pop();
   return { pages, skipped: [...skipped], placements };
 }
+
+// iPad Smart Punctuation turns " ' -- ... into typographic characters the setup does not offer.
+export const normalizeText = (t) => t.normalize('NFC').replace(/[‘’‚‛′]/g, "'").replace(/[“”„‟″«»]/g, '"')
+  .replace(/[–—]/g, '-').replace(/…/g, '...').replace(/\u00a0/g, ' ');

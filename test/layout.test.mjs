@@ -66,3 +66,9 @@ test('a word longer than a line is broken inside the margins', () => {
   for (const [x] of all(r)) assert.ok(x >= PAGE.margin.left && x <= PAGE.margin.right, `x ${x}`);
   assert.ok(new Set(r.pages[0].map((s) => Math.round(s[0][1]))).size >= 2, 'spans several lines');
 });
+
+test('normalizeText maps iPad smart punctuation to the set-up characters', async () => {
+  const { normalizeText } = await import('../src/layout.js');
+  assert.equal(normalizeText('„Hallo“ – geht’s… ‚ja‘'), '"Hallo" - geht\'s... \'ja\'');
+  assert.equal(normalizeText('ä'), 'ä');
+});

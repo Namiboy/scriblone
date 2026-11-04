@@ -1,5 +1,5 @@
 import * as g from './goodnotes.js';
-import { layout, LINES, CAP, DESC } from './layout.js';
+import { layout, normalizeText, LINES, CAP, DESC } from './layout.js';
 
 const $ = (id) => document.getElementById(id);
 const CHARS = [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZäöüÄÖÜß0123456789.,!?-:;()"\''];
@@ -13,8 +13,13 @@ let glyphs = {};
 try { glyphs = JSON.parse(localStorage.getItem(KEY)) ?? {}; } catch { glyphs = {}; }
 const save = () => localStorage.setItem(KEY, JSON.stringify(glyphs));
 navigator.storage?.persist?.();
-const validGlyphs = (o) => o && typeof o === 'object' && Object.values(o).every((vs) => Array.isArray(vs) && vs.every((v) => v === null ||
-  (v && typeof v.width === 'number' && Array.isArray(v.strokes) && v.strokes.every((s) => Array.isArray(s) && s.every((p) => p.length === 2 && p.every(Number.isFinite))))));
+// Backup files are untrusted: known characters only, bounded sizes, coordinates inside the pad.
+const okPt = (p) => Array.isArray(p) && p.length === 2 && p.every((n) => Number.isFinite(n) && Math.abs(n) < 10);
+const validGlyphs = (o) => o && typeof o === 'object' && !Array.isArray(o) &&
+  Object.entries(o).every(([k, vs]) => CHARS.includes(k) && Array.isArray(vs) && vs.length <= VARIANTS &&
+    vs.every((v) => v === null || (v && Number.isFinite(v.width) && v.width > 0 && v.width < 10 &&
+      Array.isArray(v.strokes) && v.strokes.length > 0 && v.strokes.length <= 200 &&
+      v.strokes.every((s) => Array.isArray(s) && s.length > 1 && s.length <= 5000 && s.every(okPt)))));
 
 // ---------- tabs
 const glyphCount = () => Object.values(glyphs).reduce((n, vs) => n + vs.filter(Boolean).length, 0);
@@ -34,9 +39,25 @@ let slot = 0, strokes = [], current = null;
 const pad = $('pad'), ctx = pad.getContext('2d');
 $('pwaWarn').hidden = standalone;
 const fillJump = () => {
-  $('jump').innerHTML = CHARS.map((c, i) => `<option value="${i * VARIANTS}">${c}${(glyphs[c] ?? []).filter(Boolean).length === VARIANTS ? '  ✓' : ''}</option>`).join('');
+  $('jump').replaceChildren(...CHARS.map((c, i) =>
+    new Option(c + ((glyphs[c] ?? []).filter(Boolean).length === VARIANTS ? '  ✓' : ''), i * VARIANTS)));
 };
-$('jump').onchange = () => go(+$('jump').value);
+$('jump').onchange = () => { commit(); go(+$('jump').value); };
+
+/** Store the pad drawing into the current slot (empty pad = variant removed). */
+function commit() {
+  const { ch, v } = slots[slot];
+  if (strokes.length) {
+    const xs = strokes.flat().map((p) => p[0]), min = Math.min(...xs);
+    const r3 = (n) => Math.round(n * 1000) / 1000;
+    // a dot needs ≥1 segment
+    (glyphs[ch] ??= [])[v] = { strokes: strokes.map((s) => (s.length > 1 ? s : [s[0], [s[0][0] + 0.01, s[0][1]]]).map(([x, y]) => [r3(x - min), r3(y)])), width: r3(Math.max(Math.max(...xs) - min, 0.08)) };
+  } else if (glyphs[ch]?.[v]) {
+    delete glyphs[ch][v];
+  } else return;
+  save();
+  resetExport(); // the font changed, an earlier export is outdated
+}
 
 function go(i) {
   slot = Math.max(0, Math.min(slots.length - 1, i));
@@ -55,7 +76,8 @@ function go(i) {
 function drawPad() {
   const r = devicePixelRatio || 1, w = pad.clientWidth, h = pad.clientHeight;
   if (!w) return;
-  pad.width = w * r; pad.height = h * r;
+  // resizing the backing store is expensive: only when the size really changed, not on every pen move
+  if (pad.width !== Math.round(w * r) || pad.height !== Math.round(h * r)) { pad.width = Math.round(w * r); pad.height = Math.round(h * r); }
   ctx.setTransform(r, 0, 0, r, 0, 0);
   ctx.clearRect(0, 0, w, h);
   const Y = (u) => ((u - PAD.top) / PAD.h) * h, s = w / PAD.w;
@@ -71,52 +93,64 @@ function drawPad() {
   }
 }
 
-const toUnits = (e) => [(e.offsetX / pad.clientWidth) * PAD.w, (e.offsetY / pad.clientHeight) * PAD.h + PAD.top];
+const toUnits = (e) => {
+  const b = pad.getBoundingClientRect();
+  return [((e.clientX - b.left) / b.width) * PAD.w, ((e.clientY - b.top) / b.height) * PAD.h + PAD.top];
+};
+let activeId = null; // the pen pointer; a palm or finger touching meanwhile is ignored
 pad.onpointerdown = (e) => {
   const dev = location.search.includes('dev');
   if (!standalone && !dev) return;
   if (e.pointerType !== 'pen' && !dev) return; // Apple Pencil only: palm and finger touches are ignored
+  if (current) return;
+  activeId = e.pointerId;
   pad.setPointerCapture(e.pointerId);
   current = [toUnits(e)]; strokes.push(current); drawPad();
 };
 pad.onpointermove = (e) => {
-  if (!current) return;
+  if (!current || e.pointerId !== activeId) return;
   for (const ev of e.getCoalescedEvents?.() ?? [e]) {
     const p = toUnits(ev), q = current.at(-1);
     if (Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.008) current.push(p);
   }
   drawPad();
 };
-pad.onpointerup = pad.onpointercancel = () => { current = null; };
+pad.onpointerup = pad.onpointercancel = (e) => { if (e.pointerId === activeId) { current = null; activeId = null; } };
 
-$('clear').onclick = () => { strokes = []; drawPad(); };
-$('undo').onclick = () => { strokes.pop(); drawPad(); };
-$('prev').onclick = () => go(slot - 1);
+$('clear').onclick = () => { current = null; strokes = []; drawPad(); };
+$('undo').onclick = () => { current = null; strokes.pop(); drawPad(); };
+$('prev').onclick = () => { commit(); go(slot - 1); };
 $('next').onclick = () => {
-  const { ch, v } = slots[slot];
-  if (strokes.length) {
-    const xs = strokes.flat().map((p) => p[0]), min = Math.min(...xs);
-    const r3 = (n) => Math.round(n * 1000) / 1000;
-    (glyphs[ch] ??= [])[v] = { strokes: strokes.map((s) => (s.length > 1 ? s : [s[0], [s[0][0] + 0.01, s[0][1]]]).map(([x, y]) => [r3(x - min), r3(y)])) /* a dot needs ≥1 segment */, width: r3(Math.max(Math.max(...xs) - min, 0.08)) };
-  } else if (glyphs[ch]) {
-    delete glyphs[ch][v]; // cleared = variant removed
-  }
-  save();
+  commit();
   // after the last slot continue with the first one still missing
   const missing = slots.findIndex(({ ch: c, v: w }) => !glyphs[c]?.[w]);
   go(slot + 1 < slots.length ? slot + 1 : missing >= 0 ? missing : slot);
 };
 addEventListener('resize', drawPad);
 
-$('backup').onclick = () => {
-  $('backup').href = URL.createObjectURL(new Blob([JSON.stringify(glyphs)], { type: 'application/json' }));
-  $('backup').download = 'scriblone-schrift.json';
+// Backup: share sheet (save to Files / iCloud) where possible, a download link otherwise.
+$('backup').onclick = async (e) => {
+  const f = new File([JSON.stringify(glyphs)], 'scriblone-schrift.json', { type: 'application/json' });
+  if (navigator.canShare?.({ files: [f] })) {
+    e.preventDefault();
+    try { await navigator.share({ files: [f] }); } catch (err) { if (err.name !== 'AbortError') alert('Backup fehlgeschlagen: ' + err.message); }
+    return;
+  }
+  if ($('backup').href) URL.revokeObjectURL($('backup').href);
+  $('backup').href = URL.createObjectURL(f);
+  $('backup').download = f.name;
 };
 $('restore').onchange = async (e) => {
+  const f = e.target.files[0];
+  e.target.value = ''; // allow choosing the same file again
+  if (!f) return;
   try {
-    const o = JSON.parse(await e.target.files[0].text());
-    if (!validGlyphs(o)) throw new Error('kein scriblone-Backup');
-    glyphs = o; save(); go(0); show('setup');
+    if (f.size > 5e6) throw new Error('Datei zu groß');
+    const o = JSON.parse(await f.text());
+    if (!validGlyphs(o)) throw new Error('kein gültiges scriblone-Backup');
+    if (glyphCount() && !confirm('Deine aktuelle Schrift durch das Backup ersetzen?')) return;
+    localStorage.setItem(KEY, JSON.stringify(o)); // save first: memory only changes if storage succeeded
+    glyphs = o; resetExport(); go(0); show('setup');
     alert('Backup geladen.');
   } catch (err) { alert('Backup konnte nicht geladen werden: ' + err.message); }
 };
@@ -130,7 +164,7 @@ const resetExport = () => {
 };
 $('text').oninput = () => { if (file) { resetExport(); status(''); } };
 $('make').onclick = async () => {
-  const text = $('text').value;
+  const text = normalizeText($('text').value);
   if (!text.trim()) return status('Tippe zuerst einen Text ein.', true);
   if (!glyphCount()) return status('Richte zuerst deine Schrift ein.', true);
   resetExport();
@@ -142,7 +176,8 @@ $('make').onclick = async () => {
     template ??= g.readZip(new Uint8Array(await (await fetch('template/notebook.goodnotes')).arrayBuffer()));
     const title = text.trim().split(/\s+/).slice(0, 4).join(' ').slice(0, 40);
     const zip = g.writeZip(g.buildNotebook(template, pages.map((p) => p.map((pts) => g.strokeFromPoints(pts))), { title }));
-    const name = `${title.replace(/[\\/:*?"<>|]/g, '') || 'Notiz'}.goodnotes`;
+    const name = `${title.replace(/[\\/:*?"<>|\u0000-\u001f\u007f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').replace(/^\.+|\.+$/g, '').trim() || 'Notiz'}.goodnotes`;
+    if (normalizeText($('text').value) !== text) return status('Der Text wurde geändert – bitte erneut erzeugen.', true);
     file = new File([zip], name, { type: 'application/octet-stream' });
     $('share').disabled = !navigator.canShare?.({ files: [file] });
     const a = $('download');
@@ -175,4 +210,4 @@ function drawPreview(strokes) {
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 go(0);
-show(Object.keys(glyphs).length ? 'write' : 'setup');
+show(glyphCount() ? 'write' : 'setup');

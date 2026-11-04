@@ -163,7 +163,7 @@ export function buildNotebook(template, pages, { title } = {}) {
   const out = events.filter((e) => !oldIds.has(e.entity) && e.ev !== 10).map((e) => (e.ev === 30 && title ? withTitle(e.raw, title) : e.raw));
   const notesFiles = {};
   let c = maxCounter(events), first;
-  const add = (raws) => { out.push(...raws); c = maxCounter(raws.map((raw) => ({ raw }))); };
+  const add = (raws) => { out.push(...raws); const m = maxCounter(raws.map((raw) => ({ raw }))); if (m > c) c = m; };
   pages.forEach((strokes, i) => {
     const page = randomUuid().slice(0, 35) + 'A', notes = notesIdOf(page);
     first ??= page;
