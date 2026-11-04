@@ -1,1 +1,1 @@
-{ "name": "scriblone", "short_name": "scriblone", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#ffffff", "theme_color": "#ffffff" }
+{ "name": "scriblone", "short_name": "scriblone", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#f2f2f7", "theme_color": "#f2f2f7" }

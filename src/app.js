@@ -38,9 +38,11 @@ function go(i) {
   const { ch, v } = slots[slot], stored = glyphs[ch]?.[v];
   strokes = stored ? stored.strokes.map((s) => s.map(([x, y]) => [x + 0.3, y])) : [];
   $('target').textContent = ch;
-  $('which').textContent = `Variante ${v + 1} von ${VARIANTS}${stored ? ' ✔' : ''}`;
+  $('which').textContent = `Variante ${v + 1} von ${VARIANTS}${stored ? ' ✓' : ''}`;
   $('jump').value = CHARS.indexOf(ch) * VARIANTS;
-  $('count').textContent = `${Object.values(glyphs).reduce((n, vs) => n + vs.filter(Boolean).length, 0)} / ${slots.length}`;
+  const done = Object.values(glyphs).reduce((n, vs) => n + vs.filter(Boolean).length, 0);
+  $('count').textContent = `${done} von ${slots.length} gespeichert`;
+  $('progress').max = slots.length; $('progress').value = done;
   drawPad();
 }
 
