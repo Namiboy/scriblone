@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\""
+    "test": "node --test \"test/*.test.mjs\"",
+    "deploy": "node tools/dist.mjs && npx -y wrangler@3 pages deploy dist --project-name scriblone --branch main --commit-dirty=true"
   }
 }

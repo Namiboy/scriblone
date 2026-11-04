@@ -6,3 +6,4 @@ out/
 !template/template.goodnotes
 .omc/
 .claude/
+dist/
