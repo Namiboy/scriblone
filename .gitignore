@@ -1,0 +1,8 @@
+# Private handwriting samples and generated files never go to the public repo.
+samples/
+out/
+*.goodnotes
+!docs/spike-C.goodnotes
+!template/template.goodnotes
+.omc/
+.claude/
