@@ -35,7 +35,8 @@ const segDist = (px, py, [ax, ay], [bx, by]) => {
 };
 
 function render(size, pad = 0) {
-  const rgb = Buffer.alloc(size * size * 3), top = [10, 132, 255], bottom = [88, 86, 214];
+  // dark style: graphite gradient, white ink, blue ruled line
+  const rgb = Buffer.alloc(size * size * 3), top = [58, 58, 60], bottom = [18, 18, 20], blue = [10, 132, 255];
   const inner = 1 - 2 * pad; // maskable icons keep the motif inside the safe zone
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const u = (x + 0.5) / size, v = (y + 0.5) / size, g = (u + v) / 2;
@@ -47,8 +48,8 @@ function render(size, pad = 0) {
     let d = Infinity;
     for (let i = 1; i < curve.length; i++) d = Math.min(d, segDist(mu, mv, curve[i - 1], curve[i]));
     const ink = Math.max(0, Math.min(1, (0.035 - d) / px + 0.5));
-    const a = Math.max(line, ink);
-    c = c.map((t) => t + (255 - t) * a);
+    c = c.map((t, k) => t + (blue[k] - t) * Math.min(1, line * 2));
+    c = c.map((t) => t + (255 - t) * ink);
     rgb.set(c.map(Math.round), (y * size + x) * 3);
   }
   return png(size, rgb);
