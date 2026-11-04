@@ -1,22 +1,27 @@
 // Text → handwritten strokes on ruled A4 pages.
-// Glyph set: { [char]: [variant, …] }; variant = { strokes: [[[x, y], …], …], width } in line-spacing
-// units, x from 0, y relative to the baseline (negative = up).
+// Glyph set: { [char]: [variant, …] }; variant = { strokes: [[[x, y], …], …], width } in text-line units
+// (1 = LINES ruled lines), x from 0, y relative to the baseline (negative = up).
 import { PAGE } from './goodnotes.js';
 
 /** Max relative deviation (spec AC 5): size, letter gap, word gap, baseline (of line spacing). */
 export const JITTER = { size: 0.06, gap: 0.25, word: 0.15, base: 0.015 };
-export const GAP = 0.12, WORD = 0.45; // in line-spacing units
+export const GAP = 0.12, WORD = 0.45; // in text-line units
+// Text sits on every LINES-th ruled line: the user's real GoodNotes writing is ~3× a single line's x-height.
+export const LINES = 2, CAP = 0.7, DESC = 0.35; // cap height / descender in text-line units (setup pad guides)
 
 /** Returns { pages: [[points[], …], …], skipped: [chars], placements: [{ch, variant, scale, dx, dy}] }. */
 export function layout(text, glyphs, { rng = Math.random, page = PAGE } = {}) {
-  const u = page.lineSpacing, j = () => rng() * 2 - 1;
+  const u = page.lineSpacing * LINES, j = () => rng() * 2 - 1;
   const left = page.margin.left + 16, right = page.margin.right - 8;
-  const lastLine = Math.floor((page.margin.bottom - page.firstLine) / u) + 1;
+  const ruled = (r) => page.firstLine + (r - 1) * page.lineSpacing;
+  let firstLine = 1;
+  while (ruled(firstLine) - CAP * u < page.margin.top) firstLine++;
+  const lastLine = Math.floor((page.margin.bottom - DESC * u - page.firstLine) / page.lineSpacing) + 1;
   const pages = [[]], skipped = new Set(), placements = [];
-  let line = 1, x = left;
+  let line = firstLine, x = left;
   const newLine = () => {
     x = left;
-    if (++line > lastLine) { line = 1; pages.push([]); }
+    if ((line += LINES) > lastLine) { line = firstLine; pages.push([]); }
   };
 
   for (const para of text.replace(/\r/g, '').split('\n')) {
@@ -36,7 +41,7 @@ export function layout(text, glyphs, { rng = Math.random, page = PAGE } = {}) {
       if (!placed.length) continue;
       // shortcut: a single word wider than a line overflows the right margin; split such words if it matters
       if (x > left && x + w > right) newLine();
-      const y = page.firstLine + (line - 1) * u;
+      const y = ruled(line);
       for (const strokes of placed) for (const s of strokes) pages.at(-1).push(s.map(([px, py]) => [x + px, y + py]));
       x += w + WORD * u * (1 + JITTER.word * j());
     }

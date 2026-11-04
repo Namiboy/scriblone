@@ -1,11 +1,11 @@
 import * as g from './goodnotes.js';
-import { layout } from './layout.js';
+import { layout, LINES, CAP, DESC } from './layout.js';
 
 const $ = (id) => document.getElementById(id);
 const CHARS = [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZäöüÄÖÜß0123456789.,!?-:;()"\''];
 const VARIANTS = 3, KEY = 'scriblone.glyphs';
 // Pad geometry in line-spacing units: 2 wide, from 1.0 above to 0.6 below the baseline.
-const PAD = { w: 2, top: -1, h: 1.6, cap: -0.7, x: -0.4, desc: 0.35 };
+const PAD = { w: 2, top: -1, h: 1.6, cap: -CAP, x: -0.4, desc: DESC };
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 
 // ---------- glyph store (localStorage; shortcut: ~0.5 MB for 240 variants, move to IndexedDB if it ever hits the 5 MB quota)
@@ -53,7 +53,8 @@ function drawPad() {
   const Y = (u) => ((u - PAD.top) / PAD.h) * h, s = w / PAD.w;
   const guide = (u, width, dash) => { ctx.beginPath(); ctx.setLineDash(dash); ctx.lineWidth = width; ctx.strokeStyle = '#9ab'; ctx.moveTo(0, Y(u)); ctx.lineTo(w, Y(u)); ctx.stroke(); };
   guide(PAD.cap, 1, []); guide(PAD.x, 1, [6, 6]); guide(0, 2.5, []); guide(PAD.desc, 1, [2, 6]);
-  ctx.setLineDash([]); ctx.strokeStyle = '#111'; ctx.lineWidth = (g.PEN.width / g.PAGE.lineSpacing) * s; ctx.lineCap = ctx.lineJoin = 'round';
+  // pen drawn true to the export scale
+  ctx.setLineDash([]); ctx.strokeStyle = '#111'; ctx.lineWidth = (g.PEN.width / (g.PAGE.lineSpacing * LINES)) * s; ctx.lineCap = ctx.lineJoin = 'round';
   for (const st of strokes) {
     ctx.beginPath();
     st.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, x * s, Y(y)));

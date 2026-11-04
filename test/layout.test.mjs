@@ -1,9 +1,10 @@
 // Source: synthetic glyph set (every char a 0.4 × 0.6 box, 3 variants).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { layout, JITTER, GAP, WORD } from '../src/layout.js';
+import { layout, JITTER, GAP, WORD, LINES } from '../src/layout.js';
 import { PAGE } from '../src/goodnotes.js';
 
+const U = PAGE.lineSpacing * LINES;
 const box = (w) => ({ strokes: [[[0, 0], [w, 0], [w, -0.6], [0, -0.6], [0, 0]]], width: w });
 const chars = 'abcdefghijklmnopqrstuvwxyzäöüßABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ0123456789.,!?-:;()"\'';
 const glyphs = Object.fromEntries([...chars].map((c) => [c, [box(0.4), box(0.38), box(0.42)]]));
@@ -18,11 +19,11 @@ test('~1800 chars wrap inside the margins; paragraphs keep an empty line', () =>
     assert.ok(x >= PAGE.margin.left && x <= PAGE.margin.right, `x ${x}`);
     assert.ok(y >= PAGE.margin.top && y <= PAGE.margin.bottom, `y ${y}`);
   }
-  const ys = (r) => new Set(r.pages[0].map((s) => Math.round(s[0][1] / PAGE.lineSpacing)));
+  const ys = (r) => new Set(r.pages[0].map((s) => Math.round(s[0][1] / U)));
   const one = layout('ab\n\ncd', glyphs, { rng: () => 0.5 });
   assert.equal(ys(one).size, 2);
   const base = (s) => s[0][1];
-  assert.equal(Math.round((base(one.pages[0].at(-1)) - base(one.pages[0][0])) / PAGE.lineSpacing), 2, 'blank line between paragraphs');
+  assert.equal(Math.round((base(one.pages[0].at(-1)) - base(one.pages[0][0])) / U), 2, 'blank line between paragraphs');
 });
 
 test('overflow creates further pages', () => {
@@ -36,8 +37,8 @@ test('jitter stays in bounds and no character repeats a (variant, scale, dx, dy)
   const seen = new Map();
   for (const p of r.placements) {
     assert.ok(Math.abs(p.scale - 1) <= JITTER.size + 1e-9);
-    assert.ok(Math.abs(p.dy) <= JITTER.base * PAGE.lineSpacing + 1e-9);
-    assert.ok(Math.abs(p.dx) <= GAP * JITTER.gap * PAGE.lineSpacing + 1e-9);
+    assert.ok(Math.abs(p.dy) <= JITTER.base * U + 1e-9);
+    assert.ok(Math.abs(p.dx) <= GAP * JITTER.gap * U + 1e-9);
     const k = `${p.variant}|${p.scale}|${p.dx}|${p.dy}`, s = seen.get(p.ch) ?? new Set();
     assert.ok(!s.has(k), `repeat for ${p.ch}`);
     s.add(k); seen.set(p.ch, s);
@@ -49,8 +50,8 @@ test('jitter stays in bounds and no character repeats a (variant, scale, dx, dy)
     const [a, b] = layout('a a', glyphs, { rng: () => v }).pages[0];
     const gap = b[0][0] - a[0][0];
     const p = layout('a', glyphs, { rng: () => v }).placements[0];
-    const word = gap - (glyphs.a[p.variant].width * p.scale + GAP + GAP * JITTER.gap * (v * 2 - 1)) * PAGE.lineSpacing;
-    assert.ok(Math.abs(word / (WORD * PAGE.lineSpacing) - 1) <= JITTER.word + 1e-6, `word gap ${word}`);
+    const word = gap - (glyphs.a[p.variant].width * p.scale + GAP + GAP * JITTER.gap * (v * 2 - 1)) * U;
+    assert.ok(Math.abs(word / (WORD * U) - 1) <= JITTER.word + 1e-6, `word gap ${word}`);
   }
 });
 
