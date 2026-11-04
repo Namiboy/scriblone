@@ -5,7 +5,7 @@ import { PAGE } from './goodnotes.js';
 
 /** Max relative deviation (spec AC 5): size, letter gap, word gap; baseline shift up/down (of a text line,
  *  more above than below the ruled line, as in real handwriting). */
-export const JITTER = { size: 0.06, gap: 0.25, word: 0.15, up: 0.04, down: 0.015 };
+export const JITTER = { size: 0.06, gap: 0.25, word: 0.15, up: 0.04, down: 0.015, tilt: 3 }; // tilt: ± degrees per glyph
 export const GAP = 0.12, WORD = 0.45; // in text-line units
 // Text sits on every LINES-th ruled line: the user's real GoodNotes writing is ~3× a single line's x-height.
 export const LINES = 2, CAP = 0.7, DESC = 0.35; // cap height / descender in text-line units (setup pad guides)
@@ -35,8 +35,10 @@ export function layout(text, glyphs, { rng = Math.random, page = PAGE } = {}) {
         if (!vars?.length) { skipped.add(ch); continue; }
         const variant = Math.floor(rng() * vars.length), g = vars[variant];
         const scale = 1 + JITTER.size * j(), dy = (rng() * (JITTER.up + JITTER.down) - JITTER.up) * u, dx = GAP * u * JITTER.gap * j();
-        placements.push({ ch, variant, scale, dx, dy });
-        placed.push(g.strokes.map((s) => s.map(([px, py]) => [w + px * u * scale, dy + py * u * scale])));
+        // slant: shear around the baseline, positive = top leans right
+        const tilt = JITTER.tilt * j(), k = Math.tan((tilt * Math.PI) / 180);
+        placements.push({ ch, variant, scale, dx, dy, tilt });
+        placed.push(g.strokes.map((s) => s.map(([px, py]) => [w + (px - py * k) * u * scale, dy + py * u * scale])));
         w += g.width * u * scale + GAP * u + dx;
       }
       if (!placed.length) continue;
