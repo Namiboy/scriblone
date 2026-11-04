@@ -60,3 +60,9 @@ test('unknown characters are skipped and listed', () => {
   assert.deepEqual(r.skipped.sort(), ['@', 'é', '€'].sort());
   assert.equal(r.pages[0].length, 2);
 });
+
+test('a word longer than a line is broken inside the margins', () => {
+  const r = layout('a'.repeat(120) + ' b', glyphs);
+  for (const [x] of all(r)) assert.ok(x >= PAGE.margin.left && x <= PAGE.margin.right, `x ${x}`);
+  assert.ok(new Set(r.pages[0].map((s) => Math.round(s[0][1]))).size >= 2, 'spans several lines');
+});

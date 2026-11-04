@@ -8,6 +8,9 @@
 <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="scriblone">
 <title>scriblone</title>
 <style>
   /* iOS system colors (light / dark) */
@@ -63,25 +66,36 @@
   #pad { width: 100%; aspect-ratio: 5 / 4; border-radius: 10px; touch-action: none; display: block; background: #fff; margin-bottom: 12px; }
   .warn { background: var(--warn); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 15px; }
   #info:empty { display: none; }
+  #info.error { color: #ff3b30; }
+  .empty { text-align: center; padding: 24px 20px; }
+  .empty p { margin: 0 0 16px; color: var(--secondary); }
+  .empty .empty-title { color: var(--label); font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  button, .btn { min-height: 44px; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <h1>scriblone</h1>
-<nav>
-  <button id="tabWrite" class="on">Text</button>
-  <button id="tabSetup">Schrift einrichten</button>
+<nav role="tablist">
+  <button id="tabWrite" class="on" role="tab">Text</button>
+  <button id="tabSetup" role="tab">Schrift einrichten</button>
 </nav>
 
 <section id="write">
-  <div class="card"><textarea id="text" placeholder="Text eintippen …"></textarea></div>
+  <div id="empty" class="card empty" hidden>
+    <p class="empty-title">Willkommen bei scriblone</p>
+    <p>Schreib zuerst jedes Zeichen dreimal mit dem Apple Pencil. Danach verwandelt scriblone jeden getippten Text in deine Handschrift – als GoodNotes-Notizbuch, radier- und verschiebbar.</p>
+    <button id="startSetup" class="primary">Schrift einrichten</button>
+  </div>
+  <div class="card"><textarea id="text" placeholder="Text eintippen …" aria-label="Text"></textarea></div>
   <div class="row">
     <button id="make" class="primary">Erzeugen</button>
     <button id="share" class="secondary" disabled>Teilen</button>
     <a id="download" class="btn secondary" hidden>Herunterladen</a>
   </div>
-  <p id="info" class="footnote"></p>
-  <canvas id="preview" hidden></canvas>
+  <p id="info" class="footnote" role="status" aria-live="polite"></p>
+  <canvas id="preview" hidden aria-label="Vorschau der ersten Seite"></canvas>
+  <p class="footnote">Alles bleibt auf deinem iPad: Text und Schrift werden nirgends hochgeladen.</p>
 </section>
 
 <section id="setup" hidden>
@@ -96,9 +110,10 @@
       </div>
       <select id="jump" aria-label="Zeichen wählen"></select>
     </div>
-    <canvas id="pad"></canvas>
+    <canvas id="pad" aria-label="Schreibfläche"></canvas>
     <div class="row">
       <button id="prev" class="secondary">Zurück</button>
+      <button id="undo" class="secondary">Rückgängig</button>
       <button id="clear" class="secondary">Löschen</button>
       <button id="next" class="primary">Weiter</button>
     </div>

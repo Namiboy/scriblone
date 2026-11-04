@@ -86,3 +86,10 @@ test('buildNotebook: one page + notes file per entry, sorted keys, current page 
   const old = g.readEvents(t['index.events.pb']).filter((e) => e.ev === 54).map((e) => e.entity.slice(0, 30));
   assert.ok(!old.some((o) => Buffer.from(nb['index.events.pb']).toString('latin1').includes(o)));
 });
+
+test('buildNotebook: title replaces the template notebook name', () => {
+  const t = g.readZip(readFileSync(root + 'template/notebook.goodnotes'));
+  const nb = g.buildNotebook(t, [[]], { title: 'Liebe Grüße' });
+  const doc = g.readEvents(nb['index.events.pb']).find((e) => e.ev === 30);
+  assert.equal(new TextDecoder().decode(parse(parse(parse(doc.raw)[1].value).find((f) => f.no === 2).value)[0].value), 'Liebe Grüße');
+});

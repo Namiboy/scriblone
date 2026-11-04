@@ -136,13 +136,20 @@ export const maxCounter = (events) => events
   .flatMap((e) => parse(parse(e.raw)[1].value))
   .reduce((m, x) => (x.wire === 0 && isCounter(x.value) && x.value > m ? x.value : m), 0n);
 
+/** Document-create event (ev 30) with a new notebook title in field 2.1. */
+function withTitle(raw, title) {
+  const f = parse(raw), doc = parse(f[1].value), name = fieldOf(doc, 2);
+  const named = serialize(replaceField(parse(name.value), 1, field(1, title)));
+  return serialize([f[0], field(30, serialize(replaceField(doc, 2, field(2, named))))]);
+}
+
 /** Notes UUID of a page: last hex digit + 1. */
 export const notesIdOf = (page) => page.slice(0, 35) + (parseInt(page.at(-1), 16) + 1).toString(16).toUpperCase();
 
 /** Build a notebook with one page per entry of `pages` (each a list of tpl strokes) from a template
  *  whose LAST page has a notes file with ≥1 stroke (record prototype) and the full notes event set
  *  (104, 102, 105, 104). Template pages are dropped; each new page clones the last page's events. */
-export function buildNotebook(template, pages) {
+export function buildNotebook(template, pages, { title } = {}) {
   const f = renewIds(template);
   const events = readEvents(f['index.events.pb']);
   const pageEvs = events.filter((e) => e.ev === 54);
@@ -153,7 +160,7 @@ export function buildNotebook(template, pages) {
   const { proto } = readNotes(f['notes/' + srcNotes]);
   const sortKey = td.decode(fieldOf(parse(fieldOf(parse(fieldOf(parse(srcPage.raw), 54).value), 4).value), 1).value);
 
-  const out = events.filter((e) => !oldIds.has(e.entity) && e.ev !== 10).map((e) => e.raw);
+  const out = events.filter((e) => !oldIds.has(e.entity) && e.ev !== 10).map((e) => (e.ev === 30 && title ? withTitle(e.raw, title) : e.raw));
   const notesFiles = {};
   let c = maxCounter(events), first;
   const add = (raws) => { out.push(...raws); c = maxCounter(raws.map((raw) => ({ raw }))); };

@@ -40,11 +40,16 @@ export function layout(text, glyphs, { rng = Math.random, page = PAGE } = {}) {
         w += g.width * u * scale + GAP * u + dx;
       }
       if (!placed.length) continue;
-      // shortcut: a single word wider than a line overflows the right margin; split such words if it matters
       if (x > left && x + w > right) newLine();
-      const y = ruled(line);
-      for (const strokes of placed) for (const s of strokes) pages.at(-1).push(s.map(([px, py]) => [x + px, y + py]));
-      x += w + WORD * u * (1 + JITTER.word * j());
+      // a word wider than a whole line is broken where its next glyph would cross the margin
+      let shift = 0;
+      for (const strokes of placed) {
+        const minX = Math.min(...strokes.flat().map((p) => p[0])), maxX = Math.max(...strokes.flat().map((p) => p[0]));
+        if (x + maxX - shift > right && x + minX - shift > left) { newLine(); shift = minX; }
+        const y = ruled(line);
+        for (const s of strokes) pages.at(-1).push(s.map(([px, py]) => [x + px - shift, y + py]));
+      }
+      x += w - shift + WORD * u * (1 + JITTER.word * j());
     }
     newLine(); // paragraph end (an empty paragraph = empty line)
   }

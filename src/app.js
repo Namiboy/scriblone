@@ -17,20 +17,25 @@ const validGlyphs = (o) => o && typeof o === 'object' && Object.values(o).every(
   (v && typeof v.width === 'number' && Array.isArray(v.strokes) && v.strokes.every((s) => Array.isArray(s) && s.every((p) => p.length === 2 && p.every(Number.isFinite))))));
 
 // ---------- tabs
+const glyphCount = () => Object.values(glyphs).reduce((n, vs) => n + vs.filter(Boolean).length, 0);
 const show = (tab) => {
   $('write').hidden = tab !== 'write'; $('setup').hidden = tab !== 'setup';
+  $('empty').hidden = glyphCount() > 0;
   $('tabWrite').classList.toggle('on', tab === 'write'); $('tabSetup').classList.toggle('on', tab === 'setup');
   if (tab === 'setup') drawPad();
 };
 $('tabWrite').onclick = () => show('write');
 $('tabSetup').onclick = () => show('setup');
+$('startSetup').onclick = () => show('setup');
 
 // ---------- setup: write each character VARIANTS times
 const slots = CHARS.flatMap((ch) => Array.from({ length: VARIANTS }, (_, v) => ({ ch, v })));
 let slot = 0, strokes = [], current = null;
 const pad = $('pad'), ctx = pad.getContext('2d');
 $('pwaWarn').hidden = standalone;
-$('jump').innerHTML = CHARS.map((c) => `<option value="${CHARS.indexOf(c) * VARIANTS}">${c}</option>`).join('');
+const fillJump = () => {
+  $('jump').innerHTML = CHARS.map((c, i) => `<option value="${i * VARIANTS}">${c}${(glyphs[c] ?? []).filter(Boolean).length === VARIANTS ? '  ✓' : ''}</option>`).join('');
+};
 $('jump').onchange = () => go(+$('jump').value);
 
 function go(i) {
@@ -39,9 +44,10 @@ function go(i) {
   strokes = stored ? stored.strokes.map((s) => s.map(([x, y]) => [x + 0.3, y])) : [];
   $('target').textContent = ch;
   $('which').textContent = `Variante ${v + 1} von ${VARIANTS}${stored ? ' ✓' : ''}`;
+  fillJump();
   $('jump').value = CHARS.indexOf(ch) * VARIANTS;
-  const done = Object.values(glyphs).reduce((n, vs) => n + vs.filter(Boolean).length, 0);
-  $('count').textContent = `${done} von ${slots.length} gespeichert`;
+  const done = glyphCount();
+  $('count').textContent = done === slots.length ? 'Alle Zeichen eingerichtet ✓' : `${done} von ${slots.length} gespeichert`;
   $('progress').max = slots.length; $('progress').value = done;
   drawPad();
 }
@@ -84,6 +90,7 @@ pad.onpointermove = (e) => {
 pad.onpointerup = pad.onpointercancel = () => { current = null; };
 
 $('clear').onclick = () => { strokes = []; drawPad(); };
+$('undo').onclick = () => { strokes.pop(); drawPad(); };
 $('prev').onclick = () => go(slot - 1);
 $('next').onclick = () => {
   const { ch, v } = slots[slot];
@@ -95,7 +102,9 @@ $('next').onclick = () => {
     delete glyphs[ch][v]; // cleared = variant removed
   }
   save();
-  go(slot + 1);
+  // after the last slot continue with the first one still missing
+  const missing = slots.findIndex(({ ch: c, v: w }) => !glyphs[c]?.[w]);
+  go(slot + 1 < slots.length ? slot + 1 : missing >= 0 ? missing : slot);
 };
 addEventListener('resize', drawPad);
 
@@ -107,29 +116,48 @@ $('restore').onchange = async (e) => {
   try {
     const o = JSON.parse(await e.target.files[0].text());
     if (!validGlyphs(o)) throw new Error('kein scriblone-Backup');
-    glyphs = o; save(); go(0);
+    glyphs = o; save(); go(0); show('setup');
     alert('Backup geladen.');
   } catch (err) { alert('Backup konnte nicht geladen werden: ' + err.message); }
 };
 
 // ---------- write: text → .goodnotes
 let file, template;
+const status = (msg, error = false) => { $('info').textContent = msg; $('info').classList.toggle('error', error); };
+const resetExport = () => {
+  file = null; $('share').disabled = true; $('download').hidden = true; $('preview').hidden = true;
+  if ($('download').href) URL.revokeObjectURL($('download').href);
+};
+$('text').oninput = () => { if (file) { resetExport(); status(''); } };
 $('make').onclick = async () => {
-  const set = Object.fromEntries(Object.entries(glyphs).map(([c, vs]) => [c, vs.filter(Boolean)]));
-  const { pages, skipped } = layout($('text').value, set);
-  template ??= g.readZip(new Uint8Array(await (await fetch('template/notebook.goodnotes')).arrayBuffer()));
-  const zip = g.writeZip(g.buildNotebook(template, pages.map((p) => p.map((pts) => g.strokeFromPoints(pts)))));
-  const name = `${($('text').value.trim().split(/\s+/).slice(0, 3).join(' ') || 'Notiz').replace(/[\\/:*?"<>|]/g, '')}.goodnotes`;
-  file = new File([zip], name, { type: 'application/octet-stream' });
-  $('share').disabled = !navigator.canShare?.({ files: [file] });
-  const a = $('download');
-  a.href = URL.createObjectURL(file); a.download = name; a.hidden = false;
-  $('info').textContent = `${pages.length} Seite(n), ${pages.flat().length} Striche.` + (skipped.length ? ` Übersprungen (noch nicht eingerichtet): ${skipped.join(' ')}` : '');
-  drawPreview(pages[0]);
+  const text = $('text').value;
+  if (!text.trim()) return status('Tippe zuerst einen Text ein.', true);
+  if (!glyphCount()) return status('Richte zuerst deine Schrift ein.', true);
+  resetExport();
+  $('make').disabled = true; $('make').textContent = 'Wird erzeugt …';
+  try {
+    const set = Object.fromEntries(Object.entries(glyphs).map(([c, vs]) => [c, vs.filter(Boolean)]));
+    const { pages, skipped } = layout(text, set);
+    if (!pages.flat().length) return status(`Keines dieser Zeichen ist eingerichtet: ${skipped.join(' ')}`, true);
+    template ??= g.readZip(new Uint8Array(await (await fetch('template/notebook.goodnotes')).arrayBuffer()));
+    const title = text.trim().split(/\s+/).slice(0, 4).join(' ').slice(0, 40);
+    const zip = g.writeZip(g.buildNotebook(template, pages.map((p) => p.map((pts) => g.strokeFromPoints(pts))), { title }));
+    const name = `${title.replace(/[\\/:*?"<>|]/g, '') || 'Notiz'}.goodnotes`;
+    file = new File([zip], name, { type: 'application/octet-stream' });
+    $('share').disabled = !navigator.canShare?.({ files: [file] });
+    const a = $('download');
+    a.href = URL.createObjectURL(file); a.download = name; a.hidden = false;
+    status(`Fertig: ${pages.length === 1 ? '1 Seite' : `${pages.length} Seiten`}.` + (skipped.length ? ` Noch nicht eingerichtet und übersprungen: ${skipped.join(' ')}` : ''));
+    drawPreview(pages[0]);
+  } catch (e) {
+    status(`Erzeugen fehlgeschlagen: ${e.message}`, true);
+  } finally {
+    $('make').disabled = false; $('make').textContent = 'Erzeugen';
+  }
 };
 $('share').onclick = async () => {
   try { await navigator.share({ files: [file] }); }
-  catch (e) { if (e.name !== 'AbortError') $('info').textContent += ` Teilen fehlgeschlagen: ${e.message}`; }
+  catch (e) { if (e.name !== 'AbortError') status(`Teilen fehlgeschlagen: ${e.message}. Nutze „Herunterladen“.`, true); }
 };
 
 function drawPreview(strokes) {
