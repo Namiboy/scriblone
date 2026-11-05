@@ -180,7 +180,7 @@ $('make').onclick = async () => {
     file = new File([zip], name, { type: 'application/octet-stream' });
     $('share').disabled = !navigator.canShare?.({ files: [file] });
     status(`Fertig: ${pages.length === 1 ? '1 Seite' : `${pages.length} Seiten`}.` + (skipped.length ? ` Noch nicht eingerichtet und übersprungen: ${skipped.join(' ')}` : ''));
-    drawPreview(pages[0]);
+    drawPreview(pages);
   } catch (e) {
     status(`Erzeugen fehlgeschlagen: ${e.message}`, true);
   } finally {
@@ -192,9 +192,18 @@ $('share').onclick = async () => {
   catch (e) { if (e.name !== 'AbortError') status(`Teilen fehlgeschlagen: ${e.message}`, true); }
 };
 
-function drawPreview(strokes) {
-  const c = $('preview'), P = g.PAGE, r = devicePixelRatio || 1;
-  c.hidden = false;
+function drawPreview(pages) {
+  const box = $('preview');
+  box.replaceChildren(); box.hidden = false;
+  pages.forEach((strokes, i) => {
+    const c = document.createElement('canvas');
+    c.setAttribute('role', 'img'); c.setAttribute('aria-label', `Seite ${i + 1} von ${pages.length}`);
+    box.append(c); drawPage(c, strokes);
+  });
+}
+
+function drawPage(c, strokes) {
+  const P = g.PAGE, r = devicePixelRatio || 1;
   const w = c.clientWidth, s = w / P.width, h = P.height * s;
   c.style.height = h + 'px'; c.width = w * r; c.height = h * r;
   const x = c.getContext('2d');

@@ -51,7 +51,8 @@
   .row > * { flex: 1 1 140px; }
 
   textarea { width: 100%; min-height: 14rem; border: 0; resize: vertical; background: transparent; color: var(--label); font: 17px/1.4 -apple-system, system-ui, sans-serif; outline: none; -webkit-user-select: text; user-select: text; }
-  #preview { width: 100%; max-width: 440px; display: block; background: #fff; margin: 0 auto; border-radius: 6px; box-shadow: 0 1px 6px rgba(0, 0, 0, .15); }
+  #preview { width: 100%; }
+  #preview canvas { width: 100%; max-width: 440px; display: block; margin: 0 auto 16px; background: #fff; border-radius: 6px; box-shadow: 0 1px 6px rgba(0, 0, 0, .15); }
 
   .glyph-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
   #target { font-size: 44px; font-weight: 600; min-width: 1.3em; text-align: center; line-height: 1; }
@@ -93,7 +94,7 @@
     <button id="share" class="secondary" disabled>Teilen</button>
   </div>
   <p id="info" class="footnote" role="status" aria-live="polite"></p>
-  <canvas id="preview" hidden aria-label="Vorschau der ersten Seite"></canvas>
+  <div id="preview" hidden aria-label="Vorschau"></div>
   <p class="footnote">Alles bleibt auf deinem iPad: Text und Schrift werden nirgends hochgeladen.</p>
 </section>
 
