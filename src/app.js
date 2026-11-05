@@ -154,7 +154,11 @@ $('next').onclick = () => {
   else if (missing >= 0) go(missing);
   else showOverview();
 };
-addEventListener('resize', drawPad);
+// after a home swipe or app switch iOS can leave the page scrolled sideways: snap back, redraw at the real size
+const fixView = () => { if (scrollX) scrollTo(0, scrollY); drawPad(); };
+addEventListener('resize', fixView);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) fixView(); });
+addEventListener('pageshow', fixView);
 
 // Backup: share sheet (save to Files / iCloud) where possible, a download link otherwise.
 $('backup').onclick = async (e) => {
