@@ -161,7 +161,9 @@ const status = (msg, error = false) => { $('info').textContent = msg; $('info').
 const resetExport = () => {
   file = null; $('share').disabled = true; $('preview').hidden = true;
 };
-$('text').oninput = () => { if (file) { resetExport(); status(''); } };
+// the field grows with its text: an inner scroll box makes iOS race-scroll while a selection is dragged
+const fit = () => { const t = $('text'); t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; };
+$('text').oninput = () => { fit(); if (file) { resetExport(); status(''); } };
 $('make').onclick = async () => {
   const text = normalizeText($('text').value);
   if (!text.trim()) return status('Tippe zuerst einen Text ein.', true);
