@@ -16,7 +16,7 @@ test('~1800 chars wrap inside the margins; paragraphs keep an empty line', () =>
   const t = text(300).slice(0, 1800);
   const r = layout(t, glyphs);
   for (const [x, y] of all(r)) {
-    assert.ok(x >= PAGE.margin.left && x <= PAGE.margin.right, `x ${x}`);
+    assert.ok(x >= PAGE.margin.left && x <= PAGE.width - 40, `x ${x}`);
     assert.ok(y >= PAGE.margin.top && y <= PAGE.margin.bottom, `y ${y}`);
   }
   const ys = (r) => new Set(r.pages[0].map((s) => Math.round(s[0][1] / U)));
@@ -64,7 +64,7 @@ test('unknown characters are skipped and listed', () => {
 
 test('a word longer than a line is broken inside the margins', () => {
   const r = layout('a'.repeat(120) + ' b', glyphs);
-  for (const [x] of all(r)) assert.ok(x >= PAGE.margin.left && x <= PAGE.margin.right, `x ${x}`);
+  for (const [x] of all(r)) assert.ok(x >= PAGE.margin.left && x <= PAGE.width - 40, `x ${x}`);
   assert.ok(new Set(r.pages[0].map((s) => Math.round(s[0][1]))).size >= 2, 'spans several lines');
 });
 

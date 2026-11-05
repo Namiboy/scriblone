@@ -14,7 +14,8 @@ export const LINES = 2, CAP = 0.7, DESC = 0.35; // cap height / descender in tex
 /** Returns { pages: [[points[], …], …], skipped: [chars], placements: [{ch, variant, scale, dx, dy}] }. */
 export function layout(text, glyphs, { rng = Math.random, page = PAGE } = {}) {
   const u = page.lineSpacing * LINES, j = () => rng() * 2 - 1;
-  const left = page.margin.left + 16, right = page.margin.right - 8;
+  // people write almost to the paper edge; the template's right margin (88) is twice its left one
+  const left = page.margin.left + 16, right = page.width - 40;
   const ruled = (r) => page.firstLine + (r - 1) * page.lineSpacing;
   let firstLine = 1;
   while (ruled(firstLine) - CAP * u < page.margin.top) firstLine++;
@@ -49,7 +50,9 @@ export function layout(text, glyphs, { rng = Math.random, page = PAGE } = {}) {
         w += g.width * u * scale + GAP * u + dx;
       }
       if (!placed.length) continue;
-      if (x > lineStart && x + w > right) newLine();
+      // fit by the ink, not by the gap after the last letter
+      const ink = Math.max(...placed.flat(2).map((p) => p[0]));
+      if (x > lineStart && x + ink > right) newLine();
       // a word wider than a whole line is broken where its next glyph would cross the margin
       let shift = 0;
       for (const strokes of placed) {
