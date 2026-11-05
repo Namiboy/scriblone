@@ -159,8 +159,7 @@ $('restore').onchange = async (e) => {
 let file, template;
 const status = (msg, error = false) => { $('info').textContent = msg; $('info').classList.toggle('error', error); };
 const resetExport = () => {
-  file = null; $('share').disabled = true; $('download').hidden = true; $('preview').hidden = true;
-  if ($('download').href) URL.revokeObjectURL($('download').href);
+  file = null; $('share').disabled = true; $('preview').hidden = true;
 };
 $('text').oninput = () => { if (file) { resetExport(); status(''); } };
 $('make').onclick = async () => {
@@ -180,8 +179,6 @@ $('make').onclick = async () => {
     if (normalizeText($('text').value) !== text) return status('Der Text wurde geändert – bitte erneut erzeugen.', true);
     file = new File([zip], name, { type: 'application/octet-stream' });
     $('share').disabled = !navigator.canShare?.({ files: [file] });
-    const a = $('download');
-    a.href = URL.createObjectURL(file); a.download = name; a.hidden = false;
     status(`Fertig: ${pages.length === 1 ? '1 Seite' : `${pages.length} Seiten`}.` + (skipped.length ? ` Noch nicht eingerichtet und übersprungen: ${skipped.join(' ')}` : ''));
     drawPreview(pages[0]);
   } catch (e) {
@@ -192,7 +189,7 @@ $('make').onclick = async () => {
 };
 $('share').onclick = async () => {
   try { await navigator.share({ files: [file] }); }
-  catch (e) { if (e.name !== 'AbortError') status(`Teilen fehlgeschlagen: ${e.message}. Nutze „Herunterladen“.`, true); }
+  catch (e) { if (e.name !== 'AbortError') status(`Teilen fehlgeschlagen: ${e.message}`, true); }
 };
 
 function drawPreview(strokes) {
