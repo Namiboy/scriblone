@@ -60,7 +60,13 @@
   .glyph-meta { flex: 1; }
   #which { font-weight: 600; }
   #count { color: var(--secondary); font-size: 15px; }
-  select { font: 17px -apple-system, system-ui, sans-serif; color: var(--tint); background: var(--fill); border: 0; border-radius: 8px; padding: 6px 10px; -webkit-appearance: none; appearance: none; }
+  #ovCount { font-weight: 600; }
+  #continueSetup { width: 100%; margin-top: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin-top: 16px; }
+  .tile { position: relative; padding: 0; aspect-ratio: 1; background: #fff; border-radius: 10px; min-height: 0; }
+  .tile canvas { width: 100%; height: 100%; display: block; }
+  .tile span { position: absolute; right: 6px; bottom: 3px; font-size: 12px; color: #8e8e93; }
+  .tile.done span { color: #34c759; }
   progress { width: 100%; height: 4px; -webkit-appearance: none; appearance: none; border: 0; border-radius: 2px; overflow: hidden; background: var(--fill); margin-top: 6px; display: block; }
   progress::-webkit-progress-bar { background: var(--fill); }
   progress::-webkit-progress-value { background: var(--tint); }
@@ -101,6 +107,13 @@
 
 <section id="setup" hidden>
   <p id="pwaWarn" class="warn" hidden>Du bist im Safari-Tab. Richte die Schrift bitte in der App vom Home-Bildschirm ein – Safari-Tab und App haben getrennte Speicher.</p>
+  <div id="overview" class="card">
+    <div id="ovCount"></div>
+    <progress id="ovProgress" max="240" value="0"></progress>
+    <button id="continueSetup" class="primary">Fehlende Zeichen schreiben</button>
+    <div id="grid" class="grid" aria-label="Zeichen"></div>
+  </div>
+  <div id="editor" hidden>
   <div class="card">
     <div class="glyph-head">
       <span id="target"></span>
@@ -109,7 +122,7 @@
         <div id="count"></div>
         <progress id="progress" max="240" value="0"></progress>
       </div>
-      <select id="jump" aria-label="Zeichen wählen"></select>
+      <button id="toOverview" class="secondary">Übersicht</button>
     </div>
     <canvas id="pad" aria-label="Schreibfläche"></canvas>
     <div class="row">
@@ -120,6 +133,7 @@
     </div>
   </div>
   <p class="footnote">Nur der Apple Pencil schreibt. Grundlinie = dicke Linie · Kleinbuchstaben bis zur gestrichelten Linie · Großbuchstaben bis zur oberen Linie · Unterlängen bis zur gepunkteten Linie. „Weiter“ speichert das Zeichen.</p>
+  </div>
 
   <p class="header">Backup</p>
   <div class="row">

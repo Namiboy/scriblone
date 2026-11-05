@@ -24,10 +24,11 @@ const validGlyphs = (o) => o && typeof o === 'object' && !Array.isArray(o) &&
 // ---------- tabs
 const glyphCount = () => Object.values(glyphs).reduce((n, vs) => n + vs.filter(Boolean).length, 0);
 const show = (tab) => {
+  if (!$('editor').hidden) commit(); // leaving the editor keeps what is on the pad
   $('write').hidden = tab !== 'write'; $('setup').hidden = tab !== 'setup';
   $('empty').hidden = glyphCount() > 0;
   $('tabWrite').classList.toggle('on', tab === 'write'); $('tabSetup').classList.toggle('on', tab === 'setup');
-  if (tab === 'setup') drawPad();
+  if (tab === 'setup') showOverview();
 };
 $('tabWrite').onclick = () => show('write');
 $('tabSetup').onclick = () => show('setup');
@@ -38,11 +39,38 @@ const slots = CHARS.flatMap((ch) => Array.from({ length: VARIANTS }, (_, v) => (
 let slot = 0, strokes = [], current = null;
 const pad = $('pad'), ctx = pad.getContext('2d');
 $('pwaWarn').hidden = standalone;
-const fillJump = () => {
-  $('jump').replaceChildren(...CHARS.map((c, i) =>
-    new Option(c + ((glyphs[c] ?? []).filter(Boolean).length === VARIANTS ? '  ✓' : ''), i * VARIANTS)));
-};
-$('jump').onchange = () => { commit(); go(+$('jump').value); };
+const firstMissing = (ch) => slots.findIndex((s) => (!ch || s.ch === ch) && !glyphs[s.ch]?.[s.v]);
+
+// ---------- overview: every character as a tile with the user's own first variant
+function showOverview() {
+  $('overview').hidden = false; $('editor').hidden = true;
+  const done = glyphCount(), all = done === slots.length;
+  $('ovCount').textContent = all ? 'Alle Zeichen eingerichtet ✓' : `${done} von ${slots.length} Varianten geschrieben`;
+  $('ovProgress').max = slots.length; $('ovProgress').value = done;
+  $('continueSetup').hidden = all;
+  $('grid').replaceChildren(...CHARS.map((ch) => {
+    const vs = (glyphs[ch] ?? []).filter(Boolean), b = document.createElement('button'), c = document.createElement('canvas'), n = document.createElement('span');
+    b.className = 'tile' + (vs.length === VARIANTS ? ' done' : '');
+    b.setAttribute('aria-label', `${ch}: ${vs.length} von ${VARIANTS}`);
+    n.textContent = vs.length === VARIANTS ? '✓' : `${vs.length}/${VARIANTS}`;
+    drawTile(c, ch, vs[0]);
+    b.append(c, n);
+    b.onclick = () => openEditor(firstMissing(ch) >= 0 ? firstMissing(ch) : CHARS.indexOf(ch) * VARIANTS);
+    return b;
+  }));
+}
+function drawTile(c, ch, glyph) {
+  // tile spans 0.85 above to 0.45 below the baseline (cap 0.7, descender 0.35)
+  const S = 120, x = c.getContext('2d'), s = S / 1.3, oy = 0.85 * s;
+  c.width = c.height = S;
+  if (!glyph) { x.fillStyle = '#c7c7cc'; x.font = '600 64px -apple-system, system-ui, sans-serif'; x.textAlign = 'center'; x.fillText(ch, S / 2, oy); return; }
+  const ox = (S - glyph.width * s) / 2;
+  x.strokeStyle = '#111'; x.lineWidth = (g.PEN.width / (g.PAGE.lineSpacing * LINES)) * s; x.lineCap = x.lineJoin = 'round';
+  for (const st of glyph.strokes) { x.beginPath(); st.forEach(([px, py], i) => (i ? x.lineTo : x.moveTo).call(x, ox + px * s, oy + py * s)); x.stroke(); }
+}
+function openEditor(i) { $('overview').hidden = true; $('editor').hidden = false; go(i); }
+$('continueSetup').onclick = () => openEditor(Math.max(0, firstMissing()));
+$('toOverview').onclick = () => { commit(); showOverview(); };
 
 /** Store the pad drawing into the current slot (empty pad = variant removed). */
 function commit() {
@@ -65,8 +93,6 @@ function go(i) {
   strokes = stored ? stored.strokes.map((s) => s.map(([x, y]) => [x + 0.3, y])) : [];
   $('target').textContent = ch;
   $('which').textContent = `Variante ${v + 1} von ${VARIANTS}${stored ? ' ✓' : ''}`;
-  fillJump();
-  $('jump').value = CHARS.indexOf(ch) * VARIANTS;
   const done = glyphCount();
   $('count').textContent = done === slots.length ? 'Alle Zeichen eingerichtet ✓' : `${done} von ${slots.length} gespeichert`;
   $('progress').max = slots.length; $('progress').value = done;
@@ -122,9 +148,11 @@ $('undo').onclick = () => { current = null; strokes.pop(); drawPad(); };
 $('prev').onclick = () => { commit(); go(slot - 1); };
 $('next').onclick = () => {
   commit();
-  // after the last slot continue with the first one still missing
-  const missing = slots.findIndex(({ ch: c, v: w }) => !glyphs[c]?.[w]);
-  go(slot + 1 < slots.length ? slot + 1 : missing >= 0 ? missing : slot);
+  // after the last slot continue with the first one still missing, or finish on the overview
+  const missing = firstMissing();
+  if (slot + 1 < slots.length) go(slot + 1);
+  else if (missing >= 0) go(missing);
+  else showOverview();
 };
 addEventListener('resize', drawPad);
 
